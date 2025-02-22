@@ -39,13 +39,13 @@ func NewAuthMiddleware(secret string) fiber.Handler {
 				})
 			}
 
-			if claims["user_id"] == nil {
+			if claims["user"] == nil {
 				return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-					"error": "Missing user_id claim",
+					"error": "Missing user claim",
 				})
 			}
 
-			c.Locals("user_id", claims["user_id"])
+			c.Locals("user", claims["user"])
 			return c.Next()
 		},
 	})

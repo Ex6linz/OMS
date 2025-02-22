@@ -1,9 +1,11 @@
 package main
 
 import (
+	"github.com/Ex6linz/OMS/order-service/internal/database"
 	"github.com/Ex6linz/OMS/order-service/internal/handlers"
 	"github.com/Ex6linz/OMS/order-service/internal/logger"
 	"github.com/Ex6linz/OMS/order-service/internal/middleware"
+	"github.com/Ex6linz/OMS/order-service/internal/models"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -12,15 +14,22 @@ import (
 
 func main() {
 
-
 	logger.Init()
 	defer logger.Log.Sync()
-
 
 	if err := godotenv.Load(); err != nil {
 		logger.Log.Warn("Brak pliku .env", zap.Error(err))
 	}
 
+	// Połączenie z bazą danych i migracja modeli
+	db, err := database.Connect()
+	if err != nil {
+		logger.Log.Fatal("Failed to connect to database", zap.Error(err))
+	}
+	// Migracja modelu Order (utworzy tabelę, jeśli nie istnieje)
+	if err := db.AutoMigrate(&models.Order{}); err != nil {
+		logger.Log.Fatal("Failed to migrate database", zap.Error(err))
+	}
 
 	app := fiber.New()
 
