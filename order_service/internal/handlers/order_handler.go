@@ -3,124 +3,138 @@ package handlers
 import (
 	"strconv"
 
+	"github.com/Ex6linz/OMS/order-service/internal/utils"
+	"github.com/go-playground/validator/v10"
+
 	"github.com/Ex6linz/OMS/order-service/internal/database"
 	"github.com/Ex6linz/OMS/order-service/internal/models"
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
-func CreateOrder(c *fiber.Ctx) error {
-    db, err := database.Connect()
-    if err != nil {
-        return c.Status(500).JSON(fiber.Map{"error": "Database error"})
-    }
+var db *gorm.DB
 
-    var order models.Order
-    if err := c.BodyParser(&order); err != nil {
-        return c.Status(400).JSON(fiber.Map{"error": "Invalid request"})
-    }
-
-    result := db.Create(&order)
-    if result.Error != nil {
-        return c.Status(500).JSON(fiber.Map{"error": "Failed to create order"})
-    }
-
-    return c.JSON(order)
+func init() {
+	var err error
+	db, err = database.Connect()
+	if err != nil {
+		panic("Failed to connect to database")
+	}
 }
 
-func GetOrder(c *fiber.Ctx) error {
-    id := c.Params("id")
-    var order models.Order
-    result := db.First(&order, id)
-    if result.Error != nil {
-        return c.Status(404).JSON(fiber.Map{"error": "Order not found"})
-    }
-    return c.JSON(order)
+func CreateOrder(c *fiber.Ctx) error {
+	var order models.Order
+	if err := c.BodyParser(&order); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	if err := utils.Validate.Struct(order); err != nil {
+		errors := make(map[string]string)
+		for _, err := range err.(validator.ValidationErrors) {
+			errors[err.Field()] = err.Tag()
+		}
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Validation failed",
+			"details": errors,
+		})
+	}
+
+	if result := db.Create(&order); result.Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create order",
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(order)
 }
 
 func GetAllOrders(c *fiber.Ctx) error {
-    db, err := database.Connect()
-    if err != nil {
-        return c.Status(iber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error"})
-    }
+	var orders []models.Order
+	result := db.Find(&orders)
+	if result.Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch orders",
+		})
+	}
 
-    var orders []models.Order
-    result := db.Find(&orders)
-    if result.Error != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch orders"})
-    }
-
-    return c.JSON(orders)
+	return c.Status(fiber.StatusOK).JSON(orders)
 }
 
-// GetOrderByID - Pobierz pojedyncze zamówienie
 func GetOrderByID(c *fiber.Ctx) error {
-    id, err := strconv.Atoi(c.Params("id"))
-    if err != nil {
-        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
-    }
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid ID",
+		})
+	}
 
-    db, err := database.Connect()
-    if err != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error"})
-    }
+	var order models.Order
+	result := db.First(&order, id)
+	if result.Error != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Order not found",
+		})
+	}
 
-    var order models.Order
-    result := db.First(&order, id)
-    if result.Error != nil {
-        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Order not found"})
-    }
-
-    return c.JSON(order)
+	return c.Status(fiber.StatusOK).JSON(order)
 }
 
-// UpdateOrder - Aktualizuj zamówienie
 func UpdateOrder(c *fiber.Ctx) error {
-    id, err := strconv.Atoi(c.Params("id"))
-    if err != nil {
-        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
-    }
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid ID",
+		})
+	}
 
-    db, err := database.Connect()
-    if err != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error"})
-    }
+	var existingOrder models.Order
+	if err := db.First(&existingOrder, id).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Order not found",
+		})
+	}
 
-    var existingOrder models.Order
-    if err := db.First(&existingOrder, id).Error; err != nil {
-        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Order not found"})
-    }
+	var updatedOrder models.Order
+	if err := c.BodyParser(&updatedOrder); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request",
+		})
+	}
 
-    var updatedOrder models.Order
-    if err := c.BodyParser(&updatedOrder); err != nil {
-        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
-    }
+	existingOrder.ProductName = updatedOrder.ProductName
+	existingOrder.Quantity = updatedOrder.Quantity
+	existingOrder.CustomerID = updatedOrder.CustomerID
 
-    // Aktualizuj tylko dozwolone pola
-    existingOrder.ProductName = updatedOrder.ProductName
-    existingOrder.Quantity = updatedOrder.Quantity
-    existingOrder.CustomerID = updatedOrder.CustomerID
+	if err := db.Save(&existingOrder).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to update order",
+		})
+	}
 
-    db.Save(&existingOrder)
-    return c.JSON(existingOrder)
+	return c.Status(fiber.StatusOK).JSON(existingOrder)
 }
 
-// DeleteOrder - Usuń zamówienie
 func DeleteOrder(c *fiber.Ctx) error {
-    id, err := strconv.Atoi(c.Params("id"))
-    if err != nil {
-        return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
-    }
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid ID",
+		})
+	}
 
-    db, err := database.Connect()
-    if err != nil {
-        return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database error"})
-    }
+	result := db.Delete(&models.Order{}, id)
+	if result.Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to delete order",
+		})
+	}
+	if result.RowsAffected == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Order not found",
+		})
+	}
 
-    var order models.Order
-    result := db.Delete(&order, id)
-    if result.RowsAffected == 0 {
-        return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Order not found"})
-    }
-
-    return c.SendStatus(fiber.StatusNoContent)
+	return c.SendStatus(fiber.StatusNoContent)
 }
