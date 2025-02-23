@@ -6,7 +6,11 @@ import (
 	"github.com/Ex6linz/OMS/order-service/internal/logger"
 	"github.com/Ex6linz/OMS/order-service/internal/middleware"
 	"github.com/Ex6linz/OMS/order-service/internal/models"
+	"github.com/Ex6linz/OMS/order-service/internal/rbac"
+	_ "github.com/Ex6linz/OMS/order-service/internal/rbac"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	_ "github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 	"os"
@@ -20,6 +24,13 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		logger.Log.Warn("Brak pliku .env", zap.Error(err))
 	}
+
+	// Uruchamiamy subskrypcję z Kafki
+	// Parametry (adresy brokerów, topic, groupID) możesz pobrać z ENV
+	kafkaBrokers := []string{"localhost:9092"}
+	topic := "rbac_updates"
+	groupID := "order-service-group"
+	rbac.StartRBACConsumer(kafkaBrokers, topic, groupID)
 
 	// Połączenie z bazą danych i migracja modeli
 	db, err := database.Connect()
@@ -41,11 +52,11 @@ func main() {
 		)
 		return c.Next()
 	})
-
+	app.Use(cors.New())
 	// Routing
 	api := app.Group("/api/v1")
 	orders := api.Group("/orders")
-
+	orders.Delete("/:id", handlers.DeleteOrder)
 	// Middleware JWT
 	orders.Use(middleware.NewAuthMiddleware(os.Getenv("JWT_SECRET")))
 

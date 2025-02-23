@@ -1,9 +1,12 @@
 package middleware
 
 import (
+	"github.com/Ex6linz/OMS/order-service/internal/logger"
+	"github.com/Ex6linz/OMS/order-service/internal/rbac"
 	"github.com/gofiber/fiber/v2"
 	jwtware "github.com/gofiber/jwt/v3"
 	"github.com/golang-jwt/jwt/v4"
+	"go.uber.org/zap"
 )
 
 func NewAuthMiddleware(secret string) fiber.Handler {
@@ -44,6 +47,19 @@ func NewAuthMiddleware(secret string) fiber.Handler {
 					"error": "Missing user claim",
 				})
 			}
+
+			role, ok := claims["role"].(string)
+			if !ok {
+				logger.Log.Warn("No role in token", zap.Any("claims", claims))
+				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+					"errror": "Forbidenn missing user role",
+				})
+			}
+			c.Locals("role", role)
+
+			// Na podstawie roli pobieramy uprawnienia z modułu rbac
+			perms := rbac.GetPermissions(role)
+			c.Locals("permissions", perms)
 
 			c.Locals("user", claims["user"])
 			return c.Next()

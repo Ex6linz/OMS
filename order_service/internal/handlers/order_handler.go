@@ -23,6 +23,13 @@ func init() {
 }
 
 func CreateOrder(c *fiber.Ctx) error {
+
+	if !utils.HasPermission(c, "create_order") {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Forbidden: insufficient permissions to create order",
+		})
+	}
+
 	var order models.Order
 	if err := c.BodyParser(&order); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -51,7 +58,34 @@ func CreateOrder(c *fiber.Ctx) error {
 }
 
 func GetAllOrders(c *fiber.Ctx) error {
+
+	if !utils.HasPermission(c, "read_orders") {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Forbidden: insufficient permissions to read orders",
+		})
+	}
+
 	var orders []models.Order
+	// Pobieranie parametrów paginacji
+	limitQuery := c.Query("limit", "10")
+	pageQuery := c.Query("page", "1")
+	limit, err := strconv.Atoi(limitQuery)
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
+	page, err := strconv.Atoi(pageQuery)
+	if err != nil || page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * limit
+
+	query := db.Limit(limit).Offset(offset)
+
+	productFilter := c.Query("product")
+	if productFilter != "" {
+		query = query.Where("product_name ILIKE ?", "%"+productFilter+"%")
+	}
+
 	result := db.Find(&orders)
 	if result.Error != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -63,6 +97,13 @@ func GetAllOrders(c *fiber.Ctx) error {
 }
 
 func GetOrderByID(c *fiber.Ctx) error {
+
+	if !utils.HasPermission(c, "read_orders") {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Forbidden: insufficient permissions to read orders",
+		})
+	}
+
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -82,6 +123,13 @@ func GetOrderByID(c *fiber.Ctx) error {
 }
 
 func UpdateOrder(c *fiber.Ctx) error {
+
+	if !utils.HasPermission(c, "update_order") {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Forbidden: insufficient permissions to update orders",
+		})
+	}
+
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -117,6 +165,11 @@ func UpdateOrder(c *fiber.Ctx) error {
 }
 
 func DeleteOrder(c *fiber.Ctx) error {
+	if !utils.HasPermission(c, "delete_order") {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Forbidden: insufficient permissions",
+		})
+	}
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
