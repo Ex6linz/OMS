@@ -57,7 +57,6 @@ func NewAuthMiddleware(secret string) fiber.Handler {
 			}
 			c.Locals("role", role)
 
-			// Na podstawie roli pobieramy uprawnienia z modułu rbac
 			perms := rbac.GetPermissions(role)
 			c.Locals("permissions", perms)
 

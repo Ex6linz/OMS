@@ -16,6 +16,23 @@ import (
 	"os"
 )
 
+func HealthCheck(c *fiber.Ctx) error {
+	healthToken := os.Getenv("HEALTH_TOKEN")
+	if healthToken == "" {
+		healthToken = "default_secret"
+	}
+
+	if c.Get("X-Health-Token") != healthToken {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status": "OK",
+	})
+}
+
 func main() {
 
 	logger.Init()
@@ -27,7 +44,7 @@ func main() {
 
 	// Uruchamiamy subskrypcję z Kafki
 	// Parametry (adresy brokerów, topic, groupID) możesz pobrać z ENV
-	kafkaBrokers := []string{"localhost:9092"}
+	kafkaBrokers := []string{"kafka:9092"}
 	topic := "rbac_updates"
 	groupID := "order-service-group"
 	rbac.StartRBACConsumer(kafkaBrokers, topic, groupID)
@@ -67,6 +84,9 @@ func main() {
 	orders.Put("/:id", handlers.UpdateOrder)
 	orders.Delete("/:id", handlers.DeleteOrder)
 
+	// Dodajemy nową grupę dla endpointów systemowych
+	system := api.Group("/system")
+	system.Get("/health", HealthCheck)
 	// Start serwera
 	port := os.Getenv("PORT")
 	if port == "" {
