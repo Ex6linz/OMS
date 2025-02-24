@@ -1,0 +1,35 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Compose
+        run: docker-compose version
+
+      - name: Build and start containers
+        run: docker-compose up -d --build
+
+      - name: Wait for Postgres to be ready
+        run: |
+          # Możesz użyć wait-for-it.sh lub skorzystać z healthchecka
+          docker-compose ps
+          # Przykładowo, czekamy 30 sekund - można rozwinąć to bardziej dynamicznie
+          sleep 30
+
+      - name: Run tests
+        run: docker-compose exec order-service go test ./...
+      
+      - name: Shut down containers
+        if: always()
+        run: docker-compose down
