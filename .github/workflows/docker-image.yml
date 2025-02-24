@@ -14,22 +14,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Docker Compose
-        run: docker-compose version
+      - name: Install docker-compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-compose
 
       - name: Build and start containers
-        run: docker compose up -d --build
+        run: docker-compose up -d --build
 
       - name: Wait for Postgres to be ready
-        run: |
-          # Możesz użyć wait-for-it.sh lub skorzystać z healthchecka
-          docker-compose ps
-          # Przykładowo, czekamy 30 sekund - można rozwinąć to bardziej dynamicznie
-          sleep 30
+        run: sleep 30
 
       - name: Run tests
-        run: docker compose exec order-service go test ./...
-      
+        run: docker-compose exec order-service go test ./...
+
       - name: Shut down containers
         if: always()
         run: docker-compose down
