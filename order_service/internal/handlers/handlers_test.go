@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// Przygotuj bazę danych in-memory do testów
 func setupTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
@@ -28,10 +27,8 @@ func setupTestDB(t *testing.T) *gorm.DB {
 func TestGetAllOrdersNoPermission(t *testing.T) {
 	app := fiber.New()
 
-	// Utwórz przykładowe żądanie GET
 	req := httptest.NewRequest(http.MethodGet, "/orders", nil)
-	// Ustaw puste uprawnienia w kontekście, symulując brak uprawnień.
-	// Możesz to zrobić, definiując middleware, który ustawia c.Locals("permissions", []string{})
+
 	app.Use(func(c *fiber.Ctx) error {
 		c.Locals("permissions", []string{}) // brak uprawnień
 		return c.Next()
@@ -52,18 +49,15 @@ func TestGetAllOrdersNoPermission(t *testing.T) {
 
 func TestCreateOrderWithPermission(t *testing.T) {
 	db = setupTestDB(t)
-	// Wstrzykujemy utworzoną bazę testową do globalnej zmiennej db
-	// (w realnym projekcie warto stosować dependency injection)
 
 	app := fiber.New()
-	// Ustawiamy uprawnienie do tworzenia zamówień
+
 	app.Use(func(c *fiber.Ctx) error {
 		c.Locals("permissions", []string{"create_order"})
 		return c.Next()
 	})
 	app.Post("/orders", CreateOrder)
 
-	// Przykładowe dane zamówienia
 	payload := `{"product_name": "Testowy produkt", "quantity": 5, "customer_id": 1}`
 	req := httptest.NewRequest(http.MethodPost, "/orders", strings.NewReader(payload))
 	req.Header.Set("Content-Type", "application/json")
