@@ -2,6 +2,8 @@ FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
+ENV SKIP_DB=true
+
 COPY order_service .
 
 RUN go mod download
