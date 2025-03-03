@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"os"
 	"strconv"
 
 	"github.com/Ex6linz/OMS/order-service/internal/utils"
@@ -15,6 +16,11 @@ import (
 var db *gorm.DB
 
 func init() {
+
+	if os.Getenv("SKIP_DB") == "true" {
+		return
+	}
+
 	var err error
 	db, err = database.Connect()
 	if err != nil {
