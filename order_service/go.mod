@@ -1,6 +1,6 @@
 module github.com/Ex6linz/OMS/order-service
 
-go 1.22.6
+go 1.23
 
 require (
 	github.com/go-playground/validator/v10 v10.25.0
