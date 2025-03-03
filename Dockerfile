@@ -1,10 +1,10 @@
 FROM golang:1.20-alpine AS builder
+
 WORKDIR /app
 
-COPY go.mod go.sum ./
-RUN go mod download
+COPY order_service .
 
-COPY . .
+RUN go mod download
 
 RUN go test ./... -v
 
