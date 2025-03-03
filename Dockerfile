@@ -8,7 +8,7 @@ ENV CGO_ENABLED=1
 
 ENV SKIP_DB=true
 
-COPY . .
+COPY order_service .
 
 RUN go mod download
 
