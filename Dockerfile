@@ -2,6 +2,10 @@ FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
+RUN apk update && apk add --no-cache gcc musl-dev
+
+ENV CGO_ENABLED=1
+
 ENV SKIP_DB=true
 
 COPY order_service .
