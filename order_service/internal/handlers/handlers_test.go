@@ -30,7 +30,7 @@ func TestGetAllOrdersNoPermission(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/orders", nil)
 
 	app.Use(func(c *fiber.Ctx) error {
-		c.Locals("permissions", []string{}) // brak uprawnień
+		c.Locals("permissions", []string{})
 		return c.Next()
 	})
 
