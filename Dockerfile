@@ -14,7 +14,7 @@ RUN go mod download
 
 RUN go test ./... -v
 
-RUN go build -o order-service .
+RUN go build -o order-service ./cmd/orders
 
 FROM alpine:3.17
 WORKDIR /app
